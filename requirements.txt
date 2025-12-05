@@ -1,0 +1,8 @@
+flask
+flask-cors
+Pillow
+google-generativeai
+matplotlib
+numpy
+sympy
+python-dotenv

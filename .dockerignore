@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+pdf-parser-client/node_modules/
+__pycache__/
+*.pyc
+*.pyo
+
+# Build outputs
+pdf-parser-client/.next/
+pdf-parser-client/out/
+*.egg-info/
+dist/
+build/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.pem
+
+# IDE and OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test files
+*.test.*
+__tests__/
+coverage/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Output files (optional - can be mounted as volumes)
+# data/
+# flask_uploads/
+# variants_output/
+
+# Large generated files
+*.png
+geometry_output.png
+region_plot.png
+test_region.png

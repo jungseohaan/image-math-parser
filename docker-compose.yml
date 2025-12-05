@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "4001:4001"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - FLASK_ENV=production
+    volumes:
+      - ./data:/app/data
+      - ./flask_uploads:/app/flask_uploads
+      - ./variants_output:/app/variants_output
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./pdf-parser-client
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:4001
+    depends_on:
+      - backend
+    restart: unless-stopped
