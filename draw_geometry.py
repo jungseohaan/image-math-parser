@@ -201,7 +201,7 @@ def draw_triangle_with_circles():
     plt.tight_layout()
 
     # 저장 (90도 회전)
-    output_path = '/Users/seohan/works/pdf-parser/geometry_output.png'
+    output_path = '/Users/seohan/works/math-image-parser/geometry_output.png'
 
     # 임시 파일로 먼저 저장
     fd, temp_path = tempfile.mkstemp(suffix='.png')

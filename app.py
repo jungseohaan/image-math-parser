@@ -753,6 +753,8 @@ def create_session():
                 # 여러 문제가 있을 때만 크롭 적용
                 cropped_img = crop_image_by_bbox(img, bounding_box)
                 cropped_img.save(image_path)
+                # 크롭된 이미지 URL을 question 데이터에 추가 (여러 문제일 때만)
+                question['cropped_image_url'] = f"{SERVER_URL}/sessions/{session_id}/image"
             else:
                 # 단일 문제거나 bounding_box가 없으면 전체 이미지 복사
                 shutil.copy2(temp_path, image_path)

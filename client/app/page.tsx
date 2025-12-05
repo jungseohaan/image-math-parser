@@ -30,6 +30,7 @@ interface QuestionData {
   table_data: string;
   math_expressions: string[];
   question_type: string;
+  cropped_image_url?: string;
 }
 
 interface AnalysisResult {
@@ -376,6 +377,36 @@ function QuestionCard({ question, index, onGenerateVariants, onAnalyzeQuestion, 
                     </span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* 원본 이미지 (크롭된 이미지) */}
+          {question.cropped_image_url && (
+            <div style={{
+              marginBottom: '20px',
+              padding: '16px',
+              backgroundColor: '#f3e5f5',
+              borderRadius: '8px',
+              border: '1px solid #ce93d8'
+            }}>
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9em', color: '#7b1fa2' }}>📷 원본 이미지</h4>
+              <div style={{
+                textAlign: 'center',
+                padding: '12px',
+                backgroundColor: 'white',
+                borderRadius: '8px',
+                border: '1px solid #e1bee7'
+              }}>
+                <img
+                  src={question.cropped_image_url}
+                  alt="문제 원본 이미지"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '500px',
+                    borderRadius: '4px'
+                  }}
+                />
               </div>
             </div>
           )}
