@@ -28,11 +28,22 @@ from routes.prompts import get_system_prompt, get_user_prompt, DEFAULT_SYSTEM_PR
 # .env 파일에서 환경 변수 로드
 load_dotenv()
 
-# Gemini API 설정
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY 환경 변수가 설정되지 않았습니다. .env 파일을 확인해주세요.")
-genai.configure(api_key=GEMINI_API_KEY)
+# Gemini API 설정 - 클라이언트에서 제공하는 키를 사용하도록 변경
+# 환경 변수의 키는 fallback으로만 사용
+DEFAULT_GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+
+
+def get_gemini_api_key():
+    """요청 헤더에서 API 키를 가져오거나 기본값 사용"""
+    api_key = request.headers.get('X-Gemini-API-Key') or DEFAULT_GEMINI_API_KEY
+    if not api_key:
+        return None
+    return api_key
+
+
+def configure_genai(api_key: str):
+    """Gemini API를 주어진 키로 설정"""
+    genai.configure(api_key=api_key)
 
 # 서버 설정 (배포 시 환경 변수로 변경)
 PORT = int(os.environ.get('FLASK_PORT', 4001))
@@ -41,9 +52,15 @@ SERVER_URL = os.environ.get('SERVER_URL', f'http://localhost:{PORT}')
 app = Flask(__name__)
 CORS(app)
 
-# GEN_DATA_PATH: 생성 데이터 저장 경로 (환경 변수로 설정 가능)
-GEN_DATA_PATH = os.path.expanduser(os.environ.get('GEN_DATA_PATH', '~/.gen-data'))
-os.makedirs(GEN_DATA_PATH, exist_ok=True)
+# Vercel serverless 환경 감지 (VERCEL 환경 변수 확인)
+IS_VERCEL = os.environ.get('VERCEL') == '1'
+
+# GEN_DATA_PATH: 생성 데이터 저장 경로
+# Vercel에서는 /tmp만 쓰기 가능, 로컬에서는 환경 변수 사용
+if IS_VERCEL:
+    GEN_DATA_PATH = '/tmp/gen-data'
+else:
+    GEN_DATA_PATH = os.path.expanduser(os.environ.get('GEN_DATA_PATH', '~/.gen-data'))
 
 UPLOAD_FOLDER = os.path.join(GEN_DATA_PATH, 'flask_uploads')
 IMAGES_FOLDER = os.path.join(UPLOAD_FOLDER, 'images')
@@ -57,21 +74,38 @@ app.config['CONFIG_FOLDER'] = CONFIG_FOLDER
 app.config['SESSIONS_FOLDER'] = SESSIONS_FOLDER
 app.config['VARIANTS_FOLDER'] = VARIANTS_FOLDER
 app.config['GEN_DATA_PATH'] = GEN_DATA_PATH
+app.config['IS_VERCEL'] = IS_VERCEL
 
+# 디렉토리 생성 (Vercel에서는 /tmp에 생성됨)
+os.makedirs(GEN_DATA_PATH, exist_ok=True)
 os.makedirs(IMAGES_FOLDER, exist_ok=True)
-os.makedirs(CONFIG_FOLDER, exist_ok=True)
+os.makedirs(CONFIG_FOLDER, exist_ok=True) if not IS_VERCEL else None
 os.makedirs(SESSIONS_FOLDER, exist_ok=True)
 os.makedirs(VARIANTS_FOLDER, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 
+@app.route('/')
+def index():
+    """API 헬스 체크 엔드포인트"""
+    return jsonify({
+        'status': 'ok',
+        'service': 'real-quiz-api',
+        'version': '1.0.0'
+    })
+
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def analyze_exam_image(img, system_prompt=None, user_prompt=None):
+def analyze_exam_image(img, system_prompt=None, user_prompt=None, api_key=None):
     """Gemini Vision으로 시험 문항 이미지를 분석합니다."""
+    # API 키 설정
+    if api_key:
+        configure_genai(api_key)
+
     # gemini-2.5-pro 사용 (이미지 분석에 가장 정확함)
     model_name = 'gemini-2.5-pro'
     model = genai.GenerativeModel(model_name)
@@ -171,6 +205,11 @@ def reset_prompts():
 @app.route('/analyze', methods=['POST'])
 def analyze_file():
     """이미지 파일을 업로드하고 Gemini Vision으로 바로 분석합니다."""
+    # API 키 확인
+    api_key = get_gemini_api_key()
+    if not api_key:
+        return jsonify({"success": False, "message": "Gemini API 키가 필요합니다. 설정에서 API 키를 입력해주세요."}), 401
+
     if 'image_file' not in request.files:
         return jsonify({"success": False, "message": "이미지 파일이 없습니다."}), 400
 
@@ -195,7 +234,7 @@ def analyze_file():
 
         # Gemini Vision으로 바로 분석
         try:
-            result = analyze_exam_image(img, system_prompt, user_prompt)
+            result = analyze_exam_image(img, system_prompt, user_prompt, api_key)
             print(f"Analyzed {len(result.get('questions', []))} questions")
 
             # 각 문항의 graph_info가 있으면 그래프 생성
@@ -390,6 +429,11 @@ def ask_llm_to_fix_json_error(error_message: str, raw_response: str) -> dict:
 @app.route('/generate-variants', methods=['POST'])
 def generate_variants():
     """문제를 기반으로 변형 문제를 생성합니다. SSE로 진행 상황 전송. 자동 복구 기능 포함."""
+    # API 키 확인
+    api_key = get_gemini_api_key()
+    if not api_key:
+        return jsonify({"success": False, "message": "Gemini API 키가 필요합니다. 설정에서 API 키를 입력해주세요."}), 401
+
     from generate_variants import generate_variants_via_code, generate_html_report
     from datetime import datetime
 
@@ -922,6 +966,11 @@ def delete_session(session_id):
 @app.route('/sessions/<session_id>/reanalyze', methods=['POST'])
 def reanalyze_session(session_id):
     """세션 재분석"""
+    # API 키 확인
+    api_key = get_gemini_api_key()
+    if not api_key:
+        return jsonify({"success": False, "message": "Gemini API 키가 필요합니다. 설정에서 API 키를 입력해주세요."}), 401
+
     session_path = get_session_path(session_id)
 
     if not os.path.exists(session_path):
@@ -947,7 +996,7 @@ def reanalyze_session(session_id):
         img = Image.open(image_path)
 
         # Gemini Vision으로 재분석
-        result = analyze_exam_image(img, system_prompt, user_prompt)
+        result = analyze_exam_image(img, system_prompt, user_prompt, api_key)
         question_count = len(result.get('questions', []))
 
         # 기존 그래프 파일 삭제
@@ -1126,6 +1175,11 @@ def generate_session_variants(session_id):
 
     메타코드 생성 방식으로 변형 문제를 생성합니다.
     """
+    # API 키 확인
+    api_key = get_gemini_api_key()
+    if not api_key:
+        return jsonify({"success": False, "message": "Gemini API 키가 필요합니다. 설정에서 API 키를 입력해주세요."}), 401
+
     from generate_variants import generate_variants_via_code, generate_html_report
 
     session_path = get_session_path(session_id)
@@ -1505,6 +1559,11 @@ def get_exam_file(session_id, filename):
 @app.route('/sessions/<session_id>/analyze-question', methods=['POST'])
 def analyze_session_question(session_id):
     """문항 심층 분석 (SSE로 진행 상황 전송)"""
+    # API 키 확인
+    api_key = get_gemini_api_key()
+    if not api_key:
+        return jsonify({"success": False, "message": "Gemini API 키가 필요합니다. 설정에서 API 키를 입력해주세요."}), 401
+
     from analyze_question import analyze_question, generate_analysis_html
 
     session_path = get_session_path(session_id)
@@ -1663,6 +1722,159 @@ def get_session_analysis_list(session_id):
     analyses.sort(key=lambda x: (x['question_number'], -x['created']))
 
     return jsonify({"success": True, "analyses": analyses})
+
+
+# ============================================================
+# 세분화된 변형문제 생성 API (Vercel serverless 10초 제한 대응)
+# ============================================================
+
+@app.route('/variants/generate-code', methods=['POST'])
+def variants_generate_code():
+    """Step 1: 변형문제 생성을 위한 Python 코드 생성 (Gemini 1회 호출)"""
+    api_key = get_gemini_api_key()
+    if not api_key:
+        return jsonify({"success": False, "message": "Gemini API 키가 필요합니다."}), 401
+
+    configure_genai(api_key)
+    from generate_variants import generate_variant_code
+
+    data = request.get_json()
+    question_data = data.get('question')
+
+    if not question_data:
+        return jsonify({"success": False, "message": "문제 데이터가 없습니다."}), 400
+
+    try:
+        code = generate_variant_code(question_data)
+        return jsonify({
+            "success": True,
+            "code": code,
+            "code_length": len(code)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": f"코드 생성 실패: {str(e)}"}), 500
+
+
+@app.route('/variants/execute-code', methods=['POST'])
+def variants_execute_code():
+    """Step 2: 생성된 코드로 변형문제 실행 (Gemini 호출 없음, 로컬 실행)"""
+    from generate_variants import execute_variant_code
+
+    data = request.get_json()
+    code = data.get('code')
+    difficulties = data.get('difficulties', [("쉬움", 3), ("보통", 4), ("어려움", 3)])
+
+    if not code:
+        return jsonify({"success": False, "message": "코드가 없습니다."}), 400
+
+    try:
+        variants = []
+        variant_id = 1
+
+        for difficulty, count in difficulties:
+            for i in range(count):
+                variant = execute_variant_code(code, difficulty, variant_id)
+                variants.append(variant)
+                variant_id += 1
+
+        error_count = sum(1 for v in variants if v.get('error'))
+
+        return jsonify({
+            "success": True,
+            "variants": variants,
+            "total": len(variants),
+            "errors": error_count
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": f"코드 실행 실패: {str(e)}"}), 500
+
+
+@app.route('/variants/solve-original', methods=['POST'])
+def variants_solve_original():
+    """Step 3: 원본 문제 풀이 생성 (Gemini 1회 호출)"""
+    api_key = get_gemini_api_key()
+    if not api_key:
+        return jsonify({"success": False, "message": "Gemini API 키가 필요합니다."}), 401
+
+    configure_genai(api_key)
+    from generate_variants import solve_original_question
+
+    data = request.get_json()
+    question_data = data.get('question')
+
+    if not question_data:
+        return jsonify({"success": False, "message": "문제 데이터가 없습니다."}), 400
+
+    try:
+        solution = solve_original_question(question_data)
+        return jsonify({
+            "success": True,
+            "solution": solution
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": f"풀이 생성 실패: {str(e)}"}), 500
+
+
+@app.route('/variants/verify', methods=['POST'])
+def variants_verify():
+    """Step 4: 변형문제 검증 (Gemini 1회 호출)"""
+    api_key = get_gemini_api_key()
+    if not api_key:
+        return jsonify({"success": False, "message": "Gemini API 키가 필요합니다."}), 401
+
+    configure_genai(api_key)
+    from generate_variants import verify_answer
+
+    data = request.get_json()
+    variant = data.get('variant')
+
+    if not variant:
+        return jsonify({"success": False, "message": "변형문제 데이터가 없습니다."}), 400
+
+    try:
+        question_text = variant.get('question_text', '')
+        choices = variant.get('choices', [])
+        answer = str(variant.get('answer', ''))
+        explanation = variant.get('explanation', '')
+
+        verification = verify_answer(question_text, choices, answer, explanation)
+
+        return jsonify({
+            "success": True,
+            "verification": verification
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": f"검증 실패: {str(e)}"}), 500
+
+
+@app.route('/variants/quick-verify', methods=['POST'])
+def variants_quick_verify():
+    """로컬 빠른 검증 (Gemini 호출 없음) - 정답이 선택지에 있는지만 확인"""
+    data = request.get_json()
+    variant = data.get('variant')
+
+    if not variant:
+        return jsonify({"success": False, "message": "변형문제 데이터가 없습니다."}), 400
+
+    answer = str(variant.get('answer', '')).strip()
+    choices = variant.get('choices', [])
+
+    if not answer or not choices:
+        return jsonify({"success": True, "verified": None, "reason": "정답 또는 선택지 없음"})
+
+    # 정답이 선택지 번호와 일치하는지 확인
+    for choice in choices:
+        choice_num = choice.get('number', '')
+        if answer == choice_num:
+            return jsonify({"success": True, "verified": True, "reason": "정답이 선택지 번호와 일치"})
+
+    # 정답이 선택지 텍스트와 일치하는지 확인
+    for choice in choices:
+        choice_text = str(choice.get('text', '')).strip()
+        if answer == choice_text:
+            return jsonify({"success": True, "verified": True, "reason": "정답이 선택지 텍스트와 일치"})
+
+    return jsonify({"success": True, "verified": None, "reason": "LLM 검증 필요"})
 
 
 if __name__ == '__main__':

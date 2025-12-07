@@ -6,16 +6,12 @@
 - 문제 풀이 여백 포함
 - 페이지 번호
 - 객관식 형식
+- 그래프는 Function Plot (JS) 사용
 """
 
 import re
-import base64
-import io
+import json
 from datetime import datetime
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import numpy as np
 
 
 def clean_float(text: str) -> str:
@@ -161,169 +157,22 @@ def format_explanation(text: str) -> str:
     return ''.join(html_parts)
 
 
-def generate_graph_image(graph_info: dict) -> str:
-    """그래프 정보로 이미지 생성 후 base64 반환"""
+def generate_graph_html(graph_info: dict, graph_id: str) -> str:
+    """그래프 정보를 Function Plot으로 렌더링할 HTML 생성"""
     if not graph_info or graph_info.get('type') == 'none':
         return ""
 
-    try:
-        plt.rcParams['font.family'] = ['AppleGothic', 'Malgun Gothic', 'sans-serif']
-        plt.rcParams['axes.unicode_minus'] = False
+    graph_type = graph_info.get('type', '')
+    plot_data = graph_info.get('plot_data', {})
 
-        fig, ax = plt.subplots(figsize=(4, 3), dpi=100)
-        ax.set_facecolor('white')
-        fig.patch.set_facecolor('white')
+    # graph_info를 JSON으로 변환하여 JavaScript에서 사용
+    graph_json = json.dumps(graph_info, ensure_ascii=False)
 
-        plot_data = graph_info.get('plot_data', {})
-        graph_type = graph_info.get('type', '')
-
-        if graph_type == 'function':
-            # 함수 그래프
-            x_range = plot_data.get('x_range', [-5, 5])
-            functions = plot_data.get('functions', [])
-
-            x = np.linspace(x_range[0], x_range[1], 500)
-
-            for func in functions:
-                expr = func.get('expression', '')
-                label = func.get('label', '')
-                style = func.get('style', '-')
-                color = func.get('color', 'black')
-
-                try:
-                    # 안전한 수식 평가
-                    y = eval(expr, {"__builtins__": {}, "x": x, "np": np, "sin": np.sin, "cos": np.cos, "tan": np.tan, "exp": np.exp, "log": np.log, "sqrt": np.sqrt, "abs": np.abs, "pi": np.pi})
-                    ax.plot(x, y, style, color=color, label=label, linewidth=1.5)
-                except:
-                    pass
-
-            ax.axhline(y=0, color='gray', linewidth=0.5)
-            ax.axvline(x=0, color='gray', linewidth=0.5)
-            ax.grid(True, alpha=0.3)
-            if any(f.get('label') for f in functions):
-                ax.legend(fontsize=8)
-
-        elif graph_type == 'coordinate':
-            # 좌표평면에 점/선
-            points = plot_data.get('points', [])
-            lines = plot_data.get('lines', [])
-
-            for pt in points:
-                ax.plot(pt.get('x', 0), pt.get('y', 0), 'ko', markersize=6)
-                if pt.get('label'):
-                    ax.annotate(pt['label'], (pt['x'], pt['y']), textcoords="offset points", xytext=(5,5), fontsize=9)
-
-            for line in lines:
-                x_vals = line.get('x', [])
-                y_vals = line.get('y', [])
-                ax.plot(x_vals, y_vals, 'k-', linewidth=1.5)
-
-            ax.axhline(y=0, color='gray', linewidth=0.5)
-            ax.axvline(x=0, color='gray', linewidth=0.5)
-            ax.grid(True, alpha=0.3)
-            ax.set_aspect('equal')
-
-        elif graph_type == 'geometry':
-            # 도형
-            shapes = plot_data.get('shapes', [])
-
-            for shape in shapes:
-                shape_type = shape.get('type', '')
-                if shape_type == 'circle':
-                    circle = plt.Circle((shape.get('cx', 0), shape.get('cy', 0)), shape.get('r', 1), fill=False, color='black', linewidth=1.5)
-                    ax.add_patch(circle)
-                elif shape_type == 'polygon':
-                    vertices = shape.get('vertices', [])
-                    if vertices:
-                        xs = [v[0] for v in vertices] + [vertices[0][0]]
-                        ys = [v[1] for v in vertices] + [vertices[0][1]]
-                        ax.plot(xs, ys, 'k-', linewidth=1.5)
-                elif shape_type == 'line':
-                    ax.plot([shape.get('x1', 0), shape.get('x2', 1)], [shape.get('y1', 0), shape.get('y2', 1)], 'k-', linewidth=1.5)
-
-            ax.set_aspect('equal')
-            ax.grid(True, alpha=0.3)
-
-        elif graph_type == 'number_line':
-            # 수직선
-            ax.axhline(y=0, color='black', linewidth=1.5)
-            points = plot_data.get('points', [])
-            for pt in points:
-                ax.plot(pt.get('x', 0), 0, 'ko', markersize=8)
-                if pt.get('label'):
-                    ax.annotate(pt['label'], (pt['x'], 0), textcoords="offset points", xytext=(0, -15), ha='center', fontsize=9)
-
-            intervals = plot_data.get('intervals', [])
-            for iv in intervals:
-                ax.axhline(y=0, xmin=iv.get('start', 0), xmax=iv.get('end', 1), color='blue', linewidth=3, alpha=0.5)
-
-            ax.set_ylim(-0.5, 0.5)
-            ax.set_yticks([])
-
-        elif graph_type == 'venn' or graph_type == 'venn_diagram':
-            # 벤다이어그램
-            from matplotlib.patches import Circle, Rectangle
-
-            sets = plot_data.get('sets', [])
-            universal = plot_data.get('universal', None)
-
-            # 전체집합 사각형
-            if universal:
-                rect = Rectangle((-2.5, -2), 5, 4, fill=False, edgecolor='black', linewidth=1.5)
-                ax.add_patch(rect)
-                ax.text(-2.3, 1.7, universal.get('label', 'U'), fontsize=10, fontweight='bold')
-
-            # 집합 원 그리기
-            colors = ['#3498db', '#e74c3c', '#2ecc71']
-            alphas = [0.3, 0.3, 0.3]
-
-            for i, s in enumerate(sets):
-                cx = s.get('cx', -0.7 + i * 1.4)
-                cy = s.get('cy', 0)
-                r = s.get('r', 1.2)
-                label = s.get('label', '')
-                color = s.get('color', colors[i % len(colors)])
-
-                circle = Circle((cx, cy), r, fill=True, facecolor=color,
-                               edgecolor='black', linewidth=1.5, alpha=alphas[i % len(alphas)])
-                ax.add_patch(circle)
-
-                # 집합 라벨
-                label_x = s.get('label_x', cx)
-                label_y = s.get('label_y', cy + r + 0.3)
-                ax.text(label_x, label_y, label, fontsize=11, fontweight='bold', ha='center')
-
-            # 영역 값 표시
-            values = plot_data.get('values', [])
-            for v in values:
-                ax.text(v.get('x', 0), v.get('y', 0), str(v.get('value', '')),
-                       fontsize=10, ha='center', va='center', fontweight='bold')
-
-            ax.set_xlim(-3, 3)
-            ax.set_ylim(-2.5, 2.5)
-            ax.set_aspect('equal')
-            ax.axis('off')
-
-        ax.set_xlabel(plot_data.get('x_label', ''), fontsize=9)
-        ax.set_ylabel(plot_data.get('y_label', ''), fontsize=9)
-
-        if plot_data.get('title'):
-            ax.set_title(plot_data['title'], fontsize=10)
-
-        plt.tight_layout()
-
-        # Base64로 변환
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight', facecolor='white', edgecolor='none')
-        buf.seek(0)
-        img_base64 = base64.b64encode(buf.read()).decode('utf-8')
-        plt.close(fig)
-
-        return f'<div class="graph-container"><img src="data:image/png;base64,{img_base64}" alt="그래프"></div>'
-
-    except Exception as e:
-        plt.close('all')
-        return f'<div class="graph-error">[그래프 생성 오류: {str(e)}]</div>'
+    return f'''
+<div class="graph-container">
+    <div id="{graph_id}" class="graph-plot" data-graph='{graph_json}'></div>
+</div>
+'''
 
 
 def generate_exam_html(questions: list, title: str = "수학 모의고사", include_answer_sheet: bool = True) -> str:
@@ -337,6 +186,7 @@ def generate_exam_html(questions: list, title: str = "수학 모의고사", incl
     # 문항별 HTML 생성
     questions_html = ""
     answers = []
+    graph_count = 0
 
     for idx, q in enumerate(valid_questions, 1):
         q_num = idx
@@ -406,10 +256,12 @@ def generate_exam_html(questions: list, title: str = "수학 모의고사", incl
             # 단계별 해설 포맷팅
             explanation_html = format_explanation(explanation) if explanation else ""
 
-            # 그래프 생성 (해설에 필요한 경우)
+            # 그래프 HTML 생성 (Function Plot 사용)
             graph_html = ""
             if graph_info and graph_info.get('type') != 'none':
-                graph_html = generate_graph_image(graph_info)
+                graph_id = f"graph-{graph_count}"
+                graph_count += 1
+                graph_html = generate_graph_html(graph_info, graph_id)
 
             answer_items += f'''
 <div class="answer-item">
@@ -442,6 +294,8 @@ def generate_exam_html(questions: list, title: str = "수학 모의고사", incl
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/function-plot@1/dist/function-plot.min.js"></script>
 <style>
 /* 인쇄 설정 - A3 */
 @media print {{
@@ -772,9 +626,11 @@ body {{
     border-radius: 4px;
 }}
 
-.graph-container img {{
-    max-width: 100%;
-    height: auto;
+.graph-plot {{
+    width: 100%;
+    max-width: 350px;
+    height: 250px;
+    margin: 0 auto;
 }}
 
 .graph-error {{
@@ -839,7 +695,156 @@ document.addEventListener("DOMContentLoaded", function() {{
         ],
         throwOnError: false
     }});
+
+    // Function Plot으로 그래프 렌더링
+    document.querySelectorAll('.graph-plot').forEach(function(el) {{
+        try {{
+            const graphData = JSON.parse(el.dataset.graph);
+            renderGraph(el.id, graphData);
+        }} catch (e) {{
+            el.innerHTML = '<div class="graph-error">[그래프 렌더링 오류]</div>';
+        }}
+    }});
 }});
+
+function renderGraph(elementId, graphInfo) {{
+    const plotData = graphInfo.plot_data || {{}};
+    const graphType = graphInfo.type || '';
+    const target = '#' + elementId;
+
+    try {{
+        if (graphType === 'function') {{
+            // 함수 그래프
+            const xRange = plotData.x_range || [-5, 5];
+            const functions = plotData.functions || [];
+
+            const data = functions.map(f => ({{
+                fn: f.expression.replace(/np\./g, 'Math.').replace(/\*\*/g, '^'),
+                color: f.color || 'black'
+            }}));
+
+            if (data.length > 0) {{
+                functionPlot({{
+                    target: target,
+                    width: 350,
+                    height: 250,
+                    xAxis: {{ domain: xRange }},
+                    yAxis: {{ domain: [-10, 10] }},
+                    grid: true,
+                    data: data
+                }});
+            }}
+        }} else if (graphType === 'coordinate') {{
+            // 좌표평면에 점/선
+            const points = plotData.points || [];
+            const lines = plotData.lines || [];
+
+            const data = [];
+
+            // 선 추가
+            lines.forEach(line => {{
+                if (line.x && line.y && line.x.length >= 2) {{
+                    data.push({{
+                        points: line.x.map((x, i) => [x, line.y[i]]),
+                        fnType: 'points',
+                        graphType: 'polyline',
+                        color: 'black'
+                    }});
+                }}
+            }});
+
+            // 점 추가
+            points.forEach(pt => {{
+                data.push({{
+                    points: [[pt.x, pt.y]],
+                    fnType: 'points',
+                    graphType: 'scatter',
+                    color: 'black'
+                }});
+            }});
+
+            if (data.length > 0) {{
+                functionPlot({{
+                    target: target,
+                    width: 350,
+                    height: 250,
+                    xAxis: {{ domain: [-5, 5] }},
+                    yAxis: {{ domain: [-5, 5] }},
+                    grid: true,
+                    data: data
+                }});
+            }}
+        }} else if (graphType === 'geometry') {{
+            // 도형 - SVG로 직접 그리기
+            const shapes = plotData.shapes || [];
+            let svgContent = '<svg viewBox="-5 -5 10 10" style="width:100%;height:100%;background:#fff">';
+            svgContent += '<line x1="-5" y1="0" x2="5" y2="0" stroke="#ccc" stroke-width="0.05"/>';
+            svgContent += '<line x1="0" y1="-5" x2="0" y2="5" stroke="#ccc" stroke-width="0.05"/>';
+
+            shapes.forEach(shape => {{
+                if (shape.type === 'circle') {{
+                    svgContent += `<circle cx="${{shape.cx||0}}" cy="${{-(shape.cy||0)}}" r="${{shape.r||1}}" fill="none" stroke="black" stroke-width="0.05"/>`;
+                }} else if (shape.type === 'polygon') {{
+                    const pts = (shape.vertices || []).map(v => `${{v[0]}},${{-v[1]}}`).join(' ');
+                    svgContent += `<polygon points="${{pts}}" fill="none" stroke="black" stroke-width="0.05"/>`;
+                }} else if (shape.type === 'line') {{
+                    svgContent += `<line x1="${{shape.x1||0}}" y1="${{-(shape.y1||0)}}" x2="${{shape.x2||1}}" y2="${{-(shape.y2||1)}}" stroke="black" stroke-width="0.05"/>`;
+                }}
+            }});
+
+            svgContent += '</svg>';
+            document.getElementById(elementId).innerHTML = svgContent;
+        }} else if (graphType === 'number_line') {{
+            // 수직선 - SVG
+            const points = plotData.points || [];
+            let svgContent = '<svg viewBox="-6 -1 12 2" style="width:100%;height:60px;background:#fff">';
+            svgContent += '<line x1="-5" y1="0" x2="5" y2="0" stroke="black" stroke-width="0.05"/>';
+
+            points.forEach(pt => {{
+                svgContent += `<circle cx="${{pt.x}}" cy="0" r="0.15" fill="black"/>`;
+                if (pt.label) {{
+                    svgContent += `<text x="${{pt.x}}" y="0.6" font-size="0.4" text-anchor="middle">${{pt.label}}</text>`;
+                }}
+            }});
+
+            svgContent += '</svg>';
+            document.getElementById(elementId).innerHTML = svgContent;
+        }} else if (graphType === 'venn' || graphType === 'venn_diagram') {{
+            // 벤다이어그램 - SVG
+            const sets = plotData.sets || [];
+            const values = plotData.values || [];
+            let svgContent = '<svg viewBox="-3 -2.5 6 5" style="width:100%;height:100%;background:#fff">';
+
+            // 전체집합 사각형
+            svgContent += '<rect x="-2.5" y="-2" width="5" height="4" fill="none" stroke="black" stroke-width="0.03"/>';
+
+            // 집합 원
+            const colors = ['rgba(52,152,219,0.3)', 'rgba(231,76,60,0.3)', 'rgba(46,204,113,0.3)'];
+            sets.forEach((s, i) => {{
+                const cx = s.cx !== undefined ? s.cx : (-0.7 + i * 1.4);
+                const cy = s.cy !== undefined ? s.cy : 0;
+                const r = s.r || 1.2;
+                svgContent += `<circle cx="${{cx}}" cy="${{-cy}}" r="${{r}}" fill="${{colors[i % 3]}}" stroke="black" stroke-width="0.03"/>`;
+                if (s.label) {{
+                    svgContent += `<text x="${{cx}}" y="${{-(cy + r + 0.3)}}" font-size="0.4" text-anchor="middle" font-weight="bold">${{s.label}}</text>`;
+                }}
+            }});
+
+            // 값 표시
+            values.forEach(v => {{
+                svgContent += `<text x="${{v.x}}" y="${{-v.y}}" font-size="0.35" text-anchor="middle" font-weight="bold">${{v.value}}</text>`;
+            }});
+
+            svgContent += '</svg>';
+            document.getElementById(elementId).innerHTML = svgContent;
+        }} else {{
+            document.getElementById(elementId).innerHTML = '<div class="graph-error">[지원하지 않는 그래프 유형]</div>';
+        }}
+    }} catch (e) {{
+        console.error('Graph render error:', e);
+        document.getElementById(elementId).innerHTML = '<div class="graph-error">[그래프 렌더링 오류]</div>';
+    }}
+}}
 </script>
 </body>
 </html>
