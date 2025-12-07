@@ -5,6 +5,33 @@ import json
 import re
 
 
+def restore_latex_escapes(obj):
+    """
+    JSON 파싱 후 손상된 LaTeX 이스케이프 시퀀스를 복원합니다.
+    \f -> \frac, \t -> \times 등의 변환을 수정합니다.
+    """
+    # 이스케이프 문자 -> LaTeX 명령어 매핑
+    escape_map = {
+        '\f': '\\f',      # form feed -> \f (for \frac, \forall, etc.)
+        '\t': '\\t',      # tab -> \t (for \times, \theta, etc.)
+        '\n': '\\n',      # newline -> \n (for \nu, \nabla, etc.)
+        '\r': '\\r',      # carriage return -> \r (for \rho, \right, etc.)
+        '\b': '\\b',      # backspace -> \b (for \beta, \bar, etc.)
+    }
+
+    if isinstance(obj, str):
+        result = obj
+        for escape_char, latex_prefix in escape_map.items():
+            result = result.replace(escape_char, latex_prefix)
+        return result
+    elif isinstance(obj, dict):
+        return {k: restore_latex_escapes(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [restore_latex_escapes(item) for item in obj]
+    else:
+        return obj
+
+
 def fix_json_escape(text: str) -> str:
     """
     JSON 문자열에서 LaTeX 백슬래시 등 잘못된 이스케이프 시퀀스를 수정합니다.
@@ -125,21 +152,24 @@ def parse_gemini_json(response_text):
 
     # 1차 시도: 직접 파싱
     try:
-        return json.loads(json_text)
+        result = json.loads(json_text)
+        return restore_latex_escapes(result)
     except json.JSONDecodeError:
         pass
 
     # 2차 시도: 이스케이프 수정 후 파싱
     try:
         fixed = fix_json_escape(json_text)
-        return json.loads(fixed)
+        result = json.loads(fixed)
+        return restore_latex_escapes(result)
     except json.JSONDecodeError:
         pass
 
     # 3차 시도: LaTeX 전용 수정
     try:
         fixed = fix_latex_in_json(json_text)
-        return json.loads(fixed)
+        result = json.loads(fixed)
+        return restore_latex_escapes(result)
     except json.JSONDecodeError:
         pass
 
@@ -147,7 +177,8 @@ def parse_gemini_json(response_text):
     try:
         cleaned = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', json_text)
         fixed = fix_json_escape(cleaned)
-        return json.loads(fixed)
+        result = json.loads(fixed)
+        return restore_latex_escapes(result)
     except json.JSONDecodeError:
         pass
 
@@ -156,7 +187,8 @@ def parse_gemini_json(response_text):
         cleaned = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', json_text)
         fixed = fix_latex_in_json(cleaned)
         fixed = fix_json_escape(fixed)
-        return json.loads(fixed)
+        result = json.loads(fixed)
+        return restore_latex_escapes(result)
     except json.JSONDecodeError as e:
         # 디버깅을 위해 문제 위치 출력
         print(f"JSON 파싱 실패: {e}")
