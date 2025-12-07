@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LlmStatsData } from '../lib/types';
+import { loadTemplate, saveTemplate, resetTemplate, getDefaultTemplate } from '../lib/examHtml';
 
-type SettingsTab = 'api-key' | 'llm-stats' | 'prompts';
+type SettingsTab = 'api-key' | 'llm-stats' | 'prompts' | 'template';
 type PromptTab = 'system' | 'user';
 
 interface SettingsModalProps {
@@ -52,6 +53,36 @@ export default function SettingsModal({
 }: SettingsModalProps) {
   const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>('api-key');
   const [activePromptTab, setActivePromptTab] = useState<PromptTab>('system');
+  const [templateContent, setTemplateContent] = useState<string>('');
+  const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
+  const [templateSaveMessage, setTemplateSaveMessage] = useState('');
+
+  // 템플릿 로드
+  useEffect(() => {
+    if (isOpen && activeSettingsTab === 'template') {
+      setIsLoadingTemplate(true);
+      loadTemplate().then((template) => {
+        setTemplateContent(template);
+        setIsLoadingTemplate(false);
+      });
+    }
+  }, [isOpen, activeSettingsTab]);
+
+  const handleSaveTemplate = () => {
+    saveTemplate(templateContent);
+    setTemplateSaveMessage('Template saved!');
+    setTimeout(() => setTemplateSaveMessage(''), 3000);
+  };
+
+  const handleResetTemplate = async () => {
+    if (confirm('Reset to default template?')) {
+      resetTemplate();
+      const defaultTpl = await getDefaultTemplate();
+      setTemplateContent(defaultTpl);
+      setTemplateSaveMessage('Template reset to default!');
+      setTimeout(() => setTemplateSaveMessage(''), 3000);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -164,6 +195,23 @@ export default function SettingsModal({
             }}
           >
             Prompts
+          </button>
+          <button
+            onClick={() => setActiveSettingsTab('template')}
+            style={{
+              flex: 1,
+              padding: '14px 20px',
+              backgroundColor: activeSettingsTab === 'template' ? 'white' : 'transparent',
+              color: activeSettingsTab === 'template' ? '#6f42c1' : '#666',
+              border: 'none',
+              borderBottom: activeSettingsTab === 'template' ? '2px solid #6f42c1' : '2px solid transparent',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: activeSettingsTab === 'template' ? 'bold' : 'normal',
+              transition: 'all 0.2s'
+            }}
+          >
+            Template
           </button>
         </div>
 
@@ -547,6 +595,96 @@ export default function SettingsModal({
                     placeholder="Enter user prompt..."
                   />
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* Template Tab */}
+          {activeSettingsTab === 'template' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.1em', color: '#333' }}>
+                  Exam Template Editor
+                </h3>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  {templateSaveMessage && (
+                    <span style={{ fontSize: '0.9em', color: '#28a745' }}>
+                      {templateSaveMessage}
+                    </span>
+                  )}
+                  <button
+                    onClick={handleResetTemplate}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    Reset
+                  </button>
+                  <button
+                    onClick={handleSaveTemplate}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#6f42c1',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+
+              <div style={{
+                padding: '12px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '8px',
+                marginBottom: '16px',
+                fontSize: '13px',
+                color: '#666'
+              }}>
+                <strong>Template Variables:</strong>
+                <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+                  <li><code>{'{{title}}'}</code> - Exam title</li>
+                  <li><code>{'{{questions}}'}</code> - Question list HTML</li>
+                  <li><code>{'{{answerSheet}}'}</code> - Answer sheet HTML</li>
+                </ul>
+                <div style={{ marginTop: '8px' }}>
+                  <strong>Features:</strong> A4 size, 2-column layout, print-optimized
+                </div>
+              </div>
+
+              {isLoadingTemplate ? (
+                <div style={{ textAlign: 'center', padding: '40px' }}>
+                  <p>Loading template...</p>
+                </div>
+              ) : (
+                <textarea
+                  value={templateContent}
+                  onChange={(e) => setTemplateContent(e.target.value)}
+                  style={{
+                    width: '100%',
+                    height: '400px',
+                    padding: '12px',
+                    border: '1px solid #ced4da',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontFamily: 'monospace',
+                    resize: 'vertical',
+                    boxSizing: 'border-box',
+                    lineHeight: '1.4'
+                  }}
+                  placeholder="Enter HTML template..."
+                />
               )}
             </div>
           )}

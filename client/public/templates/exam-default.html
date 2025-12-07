@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>{{title}}</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<style>
+/* ========================================
+   문제지 템플릿 스타일
+   이 파일을 편집하여 문제지 모양을 변경할 수 있습니다.
+   ======================================== */
+
+/* 인쇄 설정 */
+@page {
+  size: A4;
+  margin: 15mm;
+}
+
+@media print {
+  body {
+    margin: 0;
+    padding: 15mm;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .no-print { display: none !important; }
+  .answer-sheet { page-break-before: always; }
+}
+
+/* 기본 스타일 */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Nanum Gothic', sans-serif;
+  font-size: 11pt;
+  line-height: 1.5;
+  margin: 0 auto;
+  padding: 15mm;
+  background: white;
+  max-width: 210mm;
+}
+
+/* 인쇄 버튼 */
+.print-btn {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 24px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.print-btn:hover { background: #0056b3; }
+
+/* 헤더 */
+.exam-header {
+  text-align: center;
+  border-bottom: 2px solid #333;
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+}
+
+.exam-header h1 {
+  margin: 0 0 10px 0;
+  font-size: 18pt;
+  font-weight: bold;
+}
+
+.exam-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10pt;
+  color: #666;
+}
+
+/* 2단 레이아웃 - 항상 적용 */
+.questions-container {
+  column-count: 2;
+  column-gap: 30px;
+  column-rule: 1px solid #333;
+}
+
+/* 문제 스타일 */
+.question {
+  break-inside: avoid;
+  page-break-inside: avoid;
+  margin-bottom: 15px;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #fafafa;
+}
+
+.question-header {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.question-number {
+  font-weight: bold;
+  font-size: 12pt;
+  min-width: 30px;
+  color: #333;
+}
+
+.question-points {
+  font-size: 9pt;
+  color: #888;
+  margin-left: auto;
+}
+
+.question-text {
+  margin-bottom: 10px;
+  text-align: justify;
+}
+
+/* 보기 스타일 */
+.choices {
+  margin-left: 5px;
+}
+
+.choice {
+  padding: 4px 0;
+  display: flex;
+  align-items: flex-start;
+}
+
+.choice-number {
+  min-width: 25px;
+  font-weight: 500;
+}
+
+.choice-text {
+  flex: 1;
+}
+
+/* 정답표 스타일 */
+.answer-sheet {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 2px dashed #ccc;
+  column-count: 1;
+}
+
+.answer-sheet h2 {
+  text-align: center;
+  font-size: 14pt;
+  margin-bottom: 15px;
+}
+
+.answer-table {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  border-collapse: collapse;
+}
+
+.answer-table th,
+.answer-table td {
+  border: 1px solid #ddd;
+  padding: 8px 12px;
+  text-align: center;
+}
+
+.answer-table th {
+  background: #f5f5f5;
+  font-weight: bold;
+}
+
+.answer-table tr:nth-child(even) {
+  background: #fafafa;
+}
+
+/* 수식 스타일 */
+.katex { font-size: 1em; }
+.katex-display { margin: 10px 0; }
+</style>
+</head>
+<body>
+
+<button class="print-btn no-print" onclick="window.print()">인쇄</button>
+
+<div class="exam-header">
+  <h1>{{title}}</h1>
+  <div class="exam-info">
+    <span>이름: ________________</span>
+    <span>날짜: ________________</span>
+  </div>
+</div>
+
+<div class="questions-container">
+  {{questions}}
+</div>
+
+{{answerSheet}}
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  renderMathInElement(document.body, {
+    delimiters: [
+      {left: "$$", right: "$$", display: true},
+      {left: "$", right: "$", display: false},
+      {left: "\\[", right: "\\]", display: true},
+      {left: "\\(", right: "\\)", display: false}
+    ],
+    throwOnError: false
+  });
+});
+</script>
+</body>
+</html>
