@@ -257,7 +257,7 @@ VARIANT_PROMPT = """당신은 교육 전문가입니다. 주어진 원본 문제
     "question_text": "원본 문제 텍스트 (수식은 LaTeX)",
     "choices": [{{"number": "①", "text": "선택지"}}],
     "answer": "정답 번호 (예: ①)",
-    "explanation": "**상세 풀이 과정** (아래 형식 필수):\n\n[1단계] 문제 분석 및 조건 정리\n- 주어진 조건: ...\n- 구해야 할 것: ...\n\n[2단계] 풀이 전략 수립\n- 사용할 개념/공식: ...\n\n[3단계] 풀이 과정\n- 수식 전개: $...$ → $...$\n- 계산 과정: ...\n\n[4단계] 정답 도출\n- 따라서 정답은 ①",
+    "explanation": "[풀이]\n사용 개념: (핵심 공식/정리)\n$수식 전개 과정$\n$계산: ... = 결과$\n∴ 정답: ①",
     "graph_info": {{
       "type": "function/geometry/statistics/coordinate/sequence/number_line/region/venn/none",
       "description": "이 그래프가 무엇을 보여주는지 설명",
@@ -272,7 +272,7 @@ VARIANT_PROMPT = """당신은 교육 전문가입니다. 주어진 원본 문제
       "question_text": "변형 문제 텍스트 (수식은 LaTeX)",
       "choices": [{{"number": "①", "text": "선택지"}}],
       "answer": "정답 번호",
-      "explanation": "**상세 풀이 과정** (아래 형식 필수):\n\n[1단계] 문제 분석 및 조건 정리\n- 주어진 조건: ...\n- 구해야 할 것: ...\n\n[2단계] 풀이 전략 수립\n- 사용할 개념/공식: ...\n\n[3단계] 풀이 과정\n- 수식 전개: $...$ → $...$\n- 계산 과정: ...\n\n[4단계] 정답 도출\n- 따라서 정답은 ①",
+      "explanation": "[풀이]\n사용 개념: (핵심 공식/정리)\n$수식 전개 과정$\n$계산: ... = 결과$\n∴ 정답: ①",
       "change_description": "원본과 어떻게 다른지 설명",
       "graph_info": {{
         "type": "function/geometry/statistics/coordinate/sequence/number_line/region/venn/none",
@@ -288,11 +288,12 @@ VARIANT_PROMPT = """당신은 교육 전문가입니다. 주어진 원본 문제
 중요:
 - 모든 수식은 LaTeX 형식 ($..$ 또는 $$..$$)으로 작성
 - 변형 문제도 원본과 동일한 유형(객관식/주관식)을 유지
-- 각 변형 문제의 정답과 **상세한 풀이 과정**을 반드시 포함
-- **풀이 과정(explanation)은 반드시 단계별로 상세하게 작성** (단순 결과만 쓰지 말 것)
-  - 문제 분석 → 조건 정리 → 공식 적용 → 수식 전개 → 계산 → 결론 순서로 작성
-  - 각 단계에서 **왜 그렇게 하는지** 설명 포함
-  - LaTeX 수식을 사용하여 수학적 전개 과정을 명확히 표현
+- 각 변형 문제의 정답과 풀이 과정을 반드시 포함
+- **풀이 과정(explanation) 작성 규칙**:
+  - 사용한 핵심 개념/공식을 먼저 명시
+  - 수식 전개와 계산 과정을 LaTeX로 표현
+  - 중복 설명 없이 논리적 흐름만 유지
+  - 예: "[풀이]\n사용 개념: 중복조합 $_nH_r = _{n+r-1}C_r$\n$_3H_4 = _6C_4 = 15$\n∴ 정답: 15"
 - **그래프로 표현 가능한 문제는 반드시 graph_info에 plot_data 포함**
 - show_in_question: true면 문제 영역에도 그래프 표시, false면 풀이에만 표시
 - 함수는 파이썬 numpy 문법으로 (^대신 **, sin/cos/exp/log/sqrt/abs/pi 사용)
@@ -317,21 +318,19 @@ VERIFY_PROMPT = """다음 수학/과학 문제를 직접 풀어서 정답을 검
 ## 주어진 풀이
 {claimed_explanation}
 
-**중요: 반드시 문제를 직접 풀고, 단계별 풀이 과정을 상세하게 작성해주세요.**
+**중요: 문제를 직접 풀어주세요.**
 
 다음 JSON 형식으로 응답해주세요:
 ```json
 {{
   "is_correct": true/false,
-  "verified_answer": "검증된 정답 번호 (예: ①, ②, 또는 숫자)",
-  "verification_steps": "검증 풀이 과정 (단계별로 상세하게, LaTeX 수식 사용 가능)",
-  "detailed_solution": "상세 풀이:\n\n[1단계] 조건 정리\n...\n\n[2단계] 수식 전개\n...\n\n[3단계] 계산\n...\n\n[4단계] 정답 도출\n...",
+  "verified_answer": "검증된 정답 (예: ①, ②, 또는 숫자)",
+  "verification_steps": "핵심 풀이 과정 요약",
+  "detailed_solution": "[풀이]\n사용 개념: (공식/정리)\n$수식 전개$\n$계산 과정$\n∴ 정답: ...",
   "confidence": "high/medium/low",
-  "key_formula": "핵심 공식이나 개념 (예: 적분의 기본정리, 삼각함수 덧셈정리 등)"
+  "key_formula": "핵심 공식/개념"
 }}
 ```
-
-verification_steps에는 풀이 과정 요약을, detailed_solution에는 단계별 상세 풀이를 작성해주세요.
 """
 
 
@@ -1058,7 +1057,7 @@ def generate_variant(difficulty, variant_id):
         "question_text": f"${{a}} + {{b}}$의 값은?",  # LaTeX 수식 사용
         "choices": choices,
         "answer": choice_numbers[correct_idx],
-        "explanation": f"[1단계] 문제 분석\\n- 주어진 조건: 두 수 ${{a}}$와 ${{b}}$\\n- 구해야 할 것: 두 수의 합\\n\\n[2단계] 풀이\\n- 덧셈 연산을 적용합니다.\\n- ${{a}} + {{b}} = {{correct_answer}}$\\n\\n[3단계] 정답\\n- 따라서 정답은 ${{correct_answer}}$이므로 {{choice_numbers[correct_idx]}}입니다.",
+        "explanation": f"[풀이]\\n사용 개념: 덧셈\\n${{a}} + {{b}} = {{correct_answer}}$\\n∴ 정답: {{choice_numbers[correct_idx]}}",
         "change_description": f"숫자를 {{a}}, {{b}}로 변경"
     }}
 
@@ -1070,11 +1069,7 @@ def generate_variant(difficulty, variant_id):
 5. answer는 "①", "②", "③", "④", "⑤" 중 하나
 6. 수식은 LaTeX 형식 ($..$ 또는 $$..$)
 7. f-string에서 중괄호는 {{}} 로 이스케이프 (예: f"${{x}}$")
-8. **explanation은 반드시 단계별로 상세하게 작성** (아래 형식 준수):
-   - [1단계] 문제 분석: 주어진 조건과 구해야 할 것 정리
-   - [2단계] 풀이: 사용할 공식/개념, 수식 전개, 계산 과정
-   - [3단계] 정답: 최종 답과 선택지 번호
-   - 각 단계를 \\n으로 줄바꿈하여 작성
+8. **explanation 작성**: "[풀이]\\n사용 개념: ...\\n$수식$\\n∴ 정답: ..." 형식
 
 ## 출력
 Python 코드만 출력하세요. 마크다운 코드 블록 없이 순수 코드만!

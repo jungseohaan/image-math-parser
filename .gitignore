@@ -13,8 +13,8 @@ venv/
 *.pem
 
 # Build outputs
-pdf-parser-client/.next/
-pdf-parser-client/out/
+.next/
+client/.next/
 *.egg-info/
 dist/
 build/

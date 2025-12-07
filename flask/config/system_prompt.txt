@@ -43,10 +43,55 @@
       "table_data": "표가 있다면 표 내용을 마크다운 형식으로",
       "math_expressions": ["문항에 포함된 주요 수식들을 LaTeX로 추출"],
       "question_type": "객관식/주관식/단답형/서술형 중 하나",
-      "keywords": ["핵심 개념 키워드 목록"]
+      "keywords": ["핵심 개념 키워드 목록"],
+      "bounding_box": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1.0,
+        "height": 0.5
+      },
+      "analysis_process": {
+        "is_word_problem": true,
+        "objects_used": ["사과", "배"],
+        "step1_to_math": "사과 3개와 배 5개 → 3 + 5",
+        "step2_solve": "3 + 5 = 8",
+        "step3_to_context": "사과와 배는 모두 8개입니다",
+        "mathematical_concept": "덧셈"
+      }
     }
   ]
 }
+
+저학년/서술형 문제 분석 프로세스 (analysis_process) - 매우 중요!:
+- 사물(과일, 동물, 물건 등)을 사용한 문제는 반드시 analysis_process를 포함
+- is_word_problem: 사물/상황을 이용한 문장제 문제인지 여부
+- objects_used: 문제에 사용된 사물 목록 (예: ["사과", "배", "바구니"])
+- step1_to_math: 문제를 수학적 수식으로 변환 (예: "사과 3개에서 2개를 먹음 → 3 - 2")
+- step2_solve: 수식을 이용한 풀이 과정 (예: "3 - 2 = 1")
+- step3_to_context: 수학적 답을 원래 문맥으로 변환 (예: "남은 사과는 1개입니다")
+- mathematical_concept: 사용된 수학 개념 (예: "뺄셈", "곱셈", "나눗셈", "분수")
+
+예시:
+문제: "철수는 사과 5개를 가지고 있었습니다. 동생에게 2개를 주었습니다. 남은 사과는 몇 개입니까?"
+→ analysis_process: {
+    "is_word_problem": true,
+    "objects_used": ["사과"],
+    "step1_to_math": "철수의 사과 5개 - 동생에게 준 2개 → 5 - 2",
+    "step2_solve": "5 - 2 = 3",
+    "step3_to_context": "철수에게 남은 사과는 3개입니다",
+    "mathematical_concept": "뺄셈"
+  }
+
+- 수식만 있는 고학년 문제는 analysis_process를 null로 설정
+
+bounding_box 추출 규칙 (중요!):
+- 각 문항의 위치를 bounding_box로 지정해주세요
+- x, y는 문항 영역의 왼쪽 상단 좌표 (0.0~1.0 비율)
+- width, height는 문항 영역의 크기 (0.0~1.0 비율)
+- 이미지 전체가 하나의 문항이면 x=0, y=0, width=1, height=1
+- 여러 문항이 있을 때는 각 문항의 실제 영역을 정확히 지정
+- 예: 첫번째 문항이 상단 절반 → {"x": 0, "y": 0, "width": 1, "height": 0.5}
+- 예: 두번째 문항이 하단 절반 → {"x": 0, "y": 0.5, "width": 1, "height": 0.5}
 
 중요 - 수식 변환 규칙:
 - 모든 텍스트(문제, 지문, 선택지)에서 수식은 반드시 LaTeX로 변환

@@ -15,6 +15,15 @@ interface Choice {
   text: string;
 }
 
+interface AnalysisProcess {
+  is_word_problem: boolean;
+  objects_used: string[];
+  step1_to_math: string;
+  step2_solve: string;
+  step3_to_context: string;
+  mathematical_concept: string;
+}
+
 interface QuestionData {
   question_number: string;
   question_text: string;
@@ -31,6 +40,7 @@ interface QuestionData {
   math_expressions: string[];
   question_type: string;
   cropped_image_url?: string;
+  analysis_process?: AnalysisProcess | null;
 }
 
 interface AnalysisResult {
@@ -328,6 +338,85 @@ function QuestionCard({ question, index, onGenerateVariants, onAnalyzeQuestion, 
           }}>
             <RenderMathText text={question.question_text || '(문제 텍스트 없음)'} />
           </div>
+
+          {/* 분석 프로세스 (저학년/서술형 문제) */}
+          {question.analysis_process && question.analysis_process.is_word_problem && (
+            <div style={{
+              marginBottom: '20px',
+              padding: '16px',
+              backgroundColor: '#e8f5e9',
+              borderRadius: '8px',
+              border: '1px solid #a5d6a7'
+            }}>
+              <h4 style={{ margin: '0 0 16px 0', fontSize: '0.95em', color: '#2e7d32' }}>
+                🧮 문제 분석 프로세스
+              </h4>
+
+              {/* 사용된 사물 */}
+              {question.analysis_process.objects_used && question.analysis_process.objects_used.length > 0 && (
+                <div style={{ marginBottom: '12px' }}>
+                  <span style={{ fontWeight: '600', color: '#388e3c', fontSize: '0.85em' }}>📦 사용된 사물: </span>
+                  <span style={{ color: '#555' }}>{question.analysis_process.objects_used.join(', ')}</span>
+                </div>
+              )}
+
+              {/* Step 1: 수식 변환 */}
+              <div style={{
+                marginBottom: '10px',
+                padding: '10px 12px',
+                backgroundColor: '#fff3e0',
+                borderRadius: '6px',
+                borderLeft: '3px solid #ff9800'
+              }}>
+                <div style={{ fontWeight: '600', color: '#e65100', fontSize: '0.85em', marginBottom: '4px' }}>
+                  Step 1. 수식으로 변환
+                </div>
+                <div style={{ color: '#333' }}><RenderMathText text={question.analysis_process.step1_to_math} /></div>
+              </div>
+
+              {/* Step 2: 풀이 */}
+              <div style={{
+                marginBottom: '10px',
+                padding: '10px 12px',
+                backgroundColor: '#e3f2fd',
+                borderRadius: '6px',
+                borderLeft: '3px solid #2196f3'
+              }}>
+                <div style={{ fontWeight: '600', color: '#1565c0', fontSize: '0.85em', marginBottom: '4px' }}>
+                  Step 2. 수식 풀이
+                </div>
+                <div style={{ color: '#333', fontSize: '1.1em' }}>
+                  <RenderMathText text={question.analysis_process.step2_solve} />
+                </div>
+              </div>
+
+              {/* Step 3: 문맥 복원 */}
+              <div style={{
+                marginBottom: '10px',
+                padding: '10px 12px',
+                backgroundColor: '#f3e5f5',
+                borderRadius: '6px',
+                borderLeft: '3px solid #9c27b0'
+              }}>
+                <div style={{ fontWeight: '600', color: '#7b1fa2', fontSize: '0.85em', marginBottom: '4px' }}>
+                  Step 3. 답을 문맥으로 변환
+                </div>
+                <div style={{ color: '#333' }}><RenderMathText text={question.analysis_process.step3_to_context} /></div>
+              </div>
+
+              {/* 수학 개념 */}
+              <div style={{
+                marginTop: '12px',
+                padding: '8px 12px',
+                backgroundColor: 'white',
+                borderRadius: '6px',
+                border: '1px dashed #81c784'
+              }}>
+                <span style={{ fontWeight: '600', color: '#388e3c', fontSize: '0.85em' }}>💡 수학 개념: </span>
+                <span style={{ color: '#333', fontWeight: '500' }}>{question.analysis_process.mathematical_concept}</span>
+              </div>
+            </div>
+          )}
 
           {/* 지문 */}
           {question.has_passage && question.passage && (
@@ -1742,25 +1831,75 @@ export default function ExamAnalyzerPage() {
               <div style={{ flex: '0 0 350px', maxWidth: '350px' }}>
                 <div style={{
                   position: 'sticky',
-                  top: '20px',
-                  border: '1px solid #e0e0e0',
-                  borderRadius: '8px',
-                  overflow: 'hidden'
+                  top: '20px'
                 }}>
+                  {/* 원본 이미지 */}
                   <div style={{
-                    padding: '12px',
-                    backgroundColor: '#f5f5f5',
-                    borderBottom: '1px solid #e0e0e0',
-                    fontWeight: 'bold',
-                    fontSize: '0.9em'
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    marginBottom: '16px'
                   }}>
-                    📷 원본 이미지
+                    <div style={{
+                      padding: '12px',
+                      backgroundColor: '#f5f5f5',
+                      borderBottom: '1px solid #e0e0e0',
+                      fontWeight: 'bold',
+                      fontSize: '0.9em'
+                    }}>
+                      📷 원본 이미지
+                    </div>
+                    <img
+                      src={imageUrl}
+                      alt="Uploaded exam"
+                      style={{ width: '100%', display: 'block' }}
+                    />
                   </div>
-                  <img
-                    src={imageUrl}
-                    alt="Uploaded exam"
-                    style={{ width: '100%', display: 'block' }}
-                  />
+
+                  {/* 크롭된 이미지들 */}
+                  {result.questions && result.questions.filter(q => q.cropped_image_url).length > 0 && (
+                    <div style={{
+                      border: '1px solid #ce93d8',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      backgroundColor: '#faf4fc'
+                    }}>
+                      <div style={{
+                        padding: '12px',
+                        backgroundColor: '#f3e5f5',
+                        borderBottom: '1px solid #ce93d8',
+                        fontWeight: 'bold',
+                        fontSize: '0.9em',
+                        color: '#7b1fa2'
+                      }}>
+                        ✂️ 문제별 크롭 이미지
+                      </div>
+                      <div style={{ padding: '12px' }}>
+                        {result.questions.filter(q => q.cropped_image_url).map((question, idx) => (
+                          <div key={idx} style={{ marginBottom: idx < result.questions.filter(q => q.cropped_image_url).length - 1 ? '12px' : 0 }}>
+                            <div style={{
+                              fontSize: '0.85em',
+                              color: '#7b1fa2',
+                              marginBottom: '6px',
+                              fontWeight: '500'
+                            }}>
+                              {question.question_number}번 문제
+                            </div>
+                            <img
+                              src={question.cropped_image_url}
+                              alt={`문제 ${question.question_number} 크롭 이미지`}
+                              style={{
+                                width: '100%',
+                                display: 'block',
+                                borderRadius: '4px',
+                                border: '1px solid #e1bee7'
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

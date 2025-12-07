@@ -20,37 +20,39 @@
 
 ```
 real-quiz/
-├── app.py                    # Main Flask application (~1900 lines)
-├── llm_tracker.py            # LLM API usage tracking with cost calculation
-├── generate_variants.py      # Variant question generation logic
-├── generate_exam.py          # Exam generation utilities
-├── draw_geometry.py          # Geometry drawing utilities
-├── analyze_question.py       # Question analysis utilities
-├── requirements.txt          # Python dependencies
-├── .env                      # Environment variables (not in git)
-├── .env.example              # Environment template
-├── config/
-│   └── system_prompt.txt     # Gemini system prompt configuration
-├── routes/
-│   ├── __init__.py
-│   ├── prompts.py            # Prompt management API
-│   └── llm_stats.py          # LLM statistics API
-├── utils/
-│   ├── __init__.py
-│   ├── json_parser.py        # JSON parsing with LaTeX escape handling
-│   ├── image.py              # Image processing (crop by bounding box)
-│   └── llm.py                # LLM error recovery functions
-├── client/                   # Next.js frontend
+├── flask/                        # Flask backend
+│   ├── app.py                    # Main Flask application (~1700 lines)
+│   ├── llm_tracker.py            # LLM API usage tracking with cost calculation
+│   ├── generate_variants.py      # Variant question generation logic
+│   ├── generate_exam.py          # Exam generation utilities
+│   ├── draw_geometry.py          # Geometry drawing utilities
+│   ├── analyze_question.py       # Question analysis utilities
+│   ├── requirements.txt          # Python dependencies
+│   ├── config/
+│   │   └── system_prompt.txt     # Gemini system prompt configuration
+│   ├── routes/
+│   │   ├── __init__.py
+│   │   ├── prompts.py            # Prompt management API
+│   │   └── llm_stats.py          # LLM statistics API
+│   └── utils/
+│       ├── __init__.py
+│       ├── json_parser.py        # JSON parsing with LaTeX escape handling
+│       ├── image.py              # Image processing (crop by bounding box)
+│       └── llm.py                # LLM error recovery functions
+├── client/                       # Next.js frontend
 │   ├── app/
 │   │   ├── layout.tsx
-│   │   ├── page.tsx          # Main page (~103KB, single-page app)
+│   │   ├── page.tsx              # Main page (~2900 lines, single-page app)
 │   │   └── globals.css
 │   ├── package.json
 │   └── tsconfig.json
-├── Dockerfile                # Docker configuration
-├── Dockerfile.backend        # Backend-only Docker
-├── docker-compose.yml        # Docker Compose setup
-└── docker-entrypoint.sh      # Docker entrypoint script
+├── .env                          # Environment variables (not in git)
+├── .env.example                  # Environment template
+├── run-dev.sh                    # Development startup script
+├── Dockerfile                    # Docker configuration (full stack)
+├── Dockerfile.backend            # Backend-only Docker
+├── docker-compose.yml            # Docker Compose setup
+└── docker-entrypoint.sh          # Docker entrypoint script
 ```
 
 ## Environment Variables
@@ -104,13 +106,19 @@ GEN_DATA_PATH=~/gen-data  # External data storage path
 
 ## Development
 
-### Start Backend
+### Quick Start (Both servers)
 ```bash
+./run-dev.sh
+```
+
+### Start Backend Only
+```bash
+cd flask
 python app.py
 # Server runs on http://localhost:4001
 ```
 
-### Start Frontend
+### Start Frontend Only
 ```bash
 cd client
 npm run dev
@@ -130,34 +138,32 @@ docker-compose up
 ## Key Features
 1. **Image Analysis**: Gemini Vision으로 시험 문항 이미지 분석
 2. **LaTeX Support**: 수식을 LaTeX로 변환하여 저장
-3. **Bounding Box**: 각 문항의 위치 정보 추출
+3. **Bounding Box**: 각 문항의 위치 정보 추출 및 이미지 크롭
 4. **Variant Generation**: AI 기반 변형 문제 자동 생성
 5. **LLM Tracking**: API 사용량 및 비용 추적
 6. **Session Management**: 분석 세션 관리 및 저장
+7. **Analysis Process**: 저학년 문장제 문제의 3단계 분석 표시
 
 ## Notes
-- Frontend는 단일 페이지 앱 (page.tsx ~103KB)
+- Frontend는 단일 페이지 앱 (page.tsx ~2900 lines)
 - 한글 주석 및 메시지 사용
 - Gemini API 토큰 비용 추적 지원
 
-## Recent Changes (2025-12-05)
+## Recent Changes (2025-12-07)
+
+### 프로젝트 구조 변경
+- Flask 소스 파일들을 `flask/` 폴더로 이동
+- `run-dev.sh` 개발 서버 실행 스크립트 추가
+- Docker 설정 파일 업데이트
+
+### 변형문제 해설 간결화
+- 중언부언 제거, `[풀이] → 사용 개념 → 수식` 형식으로 변경
+- generate_variants.py 프롬프트 수정
 
 ### 크롭된 이미지 표시 기능
-여러 문제가 포함된 이미지 분석 시, 각 문제별로 크롭된 이미지를 표시하는 기능 구현:
+- 여러 문제 이미지 분석 시 각 문제별 크롭 이미지 저장 (`cropped.{ext}`)
+- bounding_box 없을 시 균등 분할 fallback 로직
 
-**Backend (app.py:751-760):**
-- `bounding_box`와 `len(questions) > 1` 조건이 모두 만족할 때만 이미지 크롭
-- 크롭된 경우에만 `question['cropped_image_url']` 필드 추가
-- 단일 문제 이미지는 크롭하지 않고 원본 그대로 사용
-
-**Frontend (client/app/page.tsx):**
-- `QuestionData` 인터페이스에 `cropped_image_url?: string` 필드 추가
-- `QuestionCard` 컴포넌트에 크롭된 이미지 표시 UI 추가 (보라색 테마)
-- `question.cropped_image_url`이 있을 때만 "원본 이미지" 섹션 표시
-
-### 서버 상태
-- Backend: http://localhost:4001 (Flask, 디버그 모드)
-- Frontend: http://localhost:3000 (Next.js)
-
-### 미해결 이슈
-- **크롭된 이미지 표시 안됨**: 여러 문제 이미지 분석 시 크롭된 이미지가 프론트엔드에 표시되지 않는 문제 - 추후 디버깅 필요
+### 분석 프로세스 UI
+- 저학년 문장제 문제 3단계 분석 표시 (수식 변환 → 풀이 → 문맥 복원)
+- LaTeX 렌더링 지원

@@ -5,13 +5,13 @@ FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 
 # Copy package files
-COPY pdf-parser-client/package*.json ./
+COPY client/package*.json ./
 
 # Install dependencies
 RUN npm ci
 
 # Copy source code
-COPY pdf-parser-client/ ./
+COPY client/ ./
 
 # Build Next.js app
 RUN npm run build
@@ -28,16 +28,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
-COPY requirements.txt ./
+COPY flask/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 # Copy backend source code
-COPY app.py ./
-COPY generate_exam.py ./
-COPY generate_variants.py ./
-COPY draw_geometry.py ./
-COPY llm_tracker.py ./
-COPY config/ ./config/
+COPY flask/ ./
 
 # Copy built frontend from previous stage
 COPY --from=frontend-builder /app/frontend/.next/standalone ./frontend/

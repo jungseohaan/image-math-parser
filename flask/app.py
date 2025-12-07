@@ -35,7 +35,7 @@ if not GEMINI_API_KEY:
 genai.configure(api_key=GEMINI_API_KEY)
 
 # 서버 설정 (배포 시 환경 변수로 변경)
-PORT = int(os.environ.get('PORT', 4001))
+PORT = int(os.environ.get('FLASK_PORT', 4001))
 SERVER_URL = os.environ.get('SERVER_URL', f'http://localhost:{PORT}')
 
 app = Flask(__name__)
@@ -744,20 +744,33 @@ def create_session():
             session_path = get_session_path(session_id)
             os.makedirs(session_path, exist_ok=True)
 
-            # bounding_box가 있으면 크롭, 없으면 전체 이미지 복사
+            # 원본 이미지 복사
             image_filename = f"original.{ext}"
             image_path = os.path.join(session_path, image_filename)
+            shutil.copy2(temp_path, image_path)
 
             bounding_box = question.get('bounding_box')
-            if bounding_box and len(questions) > 1:
-                # 여러 문제가 있을 때만 크롭 적용
-                cropped_img = crop_image_by_bbox(img, bounding_box)
-                cropped_img.save(image_path)
-                # 크롭된 이미지 URL을 question 데이터에 추가 (여러 문제일 때만)
-                question['cropped_image_url'] = f"{SERVER_URL}/sessions/{session_id}/image"
-            else:
-                # 단일 문제거나 bounding_box가 없으면 전체 이미지 복사
-                shutil.copy2(temp_path, image_path)
+
+            # 여러 문제가 있을 때 크롭된 이미지도 저장
+            if len(questions) > 1:
+                cropped_filename = f"cropped.{ext}"
+                cropped_path = os.path.join(session_path, cropped_filename)
+
+                if bounding_box:
+                    # Gemini가 bounding_box를 반환한 경우
+                    cropped_img = crop_image_by_bbox(img, bounding_box)
+                else:
+                    # bounding_box가 없으면 문제 개수로 균등 분할 (세로 방향)
+                    auto_bbox = {
+                        'x': 0,
+                        'y': idx / len(questions),
+                        'width': 1,
+                        'height': 1 / len(questions)
+                    }
+                    cropped_img = crop_image_by_bbox(img, auto_bbox)
+                cropped_img.save(cropped_path)
+                # 크롭된 이미지 URL을 question 데이터에 추가
+                question['cropped_image_url'] = f"{SERVER_URL}/sessions/{session_id}/files/{cropped_filename}"
 
             # 그래프 생성 (graph_info가 있으면)
             graph_info = question.get('graph_info')
